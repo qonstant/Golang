@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"lecture2/mymodule"
+	"lecture-2/mymodule"
 )
 
 func main(){
