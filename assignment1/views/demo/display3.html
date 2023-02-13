@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <title>KASPI.KZ</title>
+    </head>
+    <body>
+        <h3>Product List</h3>
+        {{range .products}}
+        {{$id := .Id}}
+        Id: {{$id}}
+        <br>
+        Name: {{.Name}}
+        <br>
+        Price: ${{.Price}}
+        <br>
+        Rate: {{.Rate}}&#9733
+        <form action="/display3.html">
+        <label for="vol">Rate (between 0 and 5):</label>
+        <input type="range" id="vol" name="vol" min="0" max="5">
+        <input type="submit">
+      	</form>
+        <br>
+        Availability: {{.Status}}
+        <br>
+        ============================
+        <br>
+        {{end}}
+        <a href="/demo">Back</a>
+    </body>
+</html>

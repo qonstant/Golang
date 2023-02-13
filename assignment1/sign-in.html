@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sign In</title>
+    <style>
+        .kaspi{
+            background-color: red;
+            color: white;
+            font-family: "Monaco", Times, serif;
+            font-size: 50px;
+            /* height: 50px; */
+            width: 19%;
+        }
+    </style>
+    <form action="/sign-in" style="...">
+        <div class="container">
+            <h1>Sign In</h1>
+            <p>{{.}}</p>
+            <br>
+            <p>Please fill in this form to sign in.</p>
+            <hr>
+            
+            <label><b>Email</b></label>
+            <input type="text" placeholder="Enter Email" name="email" required>
+
+            <label><b>Password</b></label>
+            <input type="password" placeholder="Enter Password" name="password">
+
+            <hr>
+            <div class="clearfix">
+                <button type="submit" class="signinbtn">Sign In</button>
+            </div>
+            <hr>
+            <a href="/demo">Here We GO</a>
+            <hr>
+            <a href="/sign-up-form">Go to the Registration page</a>
+            <hr>
+        </div>
+    </form>
+
+    <p class = "kaspi">KASPI.KZ</p>
+</head>
+<body>
