@@ -1,5 +1,5 @@
 {
-  "name": "go-movies-front-end",
+  "name": "go-library",
   "version": "0.1.0",
   "private": true,
   "proxy": "http://localhost:8080",

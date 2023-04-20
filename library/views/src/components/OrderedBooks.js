@@ -27,9 +27,9 @@ const OrderedBooks = () => {
 
     }, [order]);
 
-    if (order == "asc") {
+    if (order === "asc") {
         link += "desc";
-    } else if (order == "desc"){
+    } else if (order === "desc"){
         link += "asc";
     }
 

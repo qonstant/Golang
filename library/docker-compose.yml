@@ -1,39 +1,24 @@
-version: '3'
-
+version: "3.9"
 services:
-
   postgres:
-    image: 'postgres:14.5'
-    restart: always
+    image: postgres:15.2-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: library
-    logging:
-      options:
-        max-size: 10m
-        max-file: "3"
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
     ports:
-      # - '172.17.0.1:5431:5431'
-      - '5432:5432'
-    networks:
-      - my-network
+      - 5432:5432
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
       - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
-  app:
-    build: .
-    restart: always
-    # environment:
-    #   # DATABASE_URL: postgres://postgres:postgres@172.17.0.1:5432/postgres?sslmode=disable
-    #   DATABASE_URL: postgresql://postgres:postgres@clair_postgres:5432?sslmode=disable
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - '192.168.32.2:8080:8080'
-    networks:
-      - my-network
-    depends_on:
+      - "8080:8080"
+    depends_on: 
       - postgres
-    
-networks:
-  my-network:
-    external: true
+    entrypoint: ["/app/wait-for.sh", "postgres:5432", "--"]
+    # entrypoint: ["postgres:5432"]
+    command: ["/app/main"]
