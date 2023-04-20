@@ -1,2 +1,2 @@
-# KBTU_Golang
+# Golang
 This is repository for Golang course in KBTU. 
