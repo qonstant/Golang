@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { Link } from "react-router-dom";
 
 const Genres = () => {
   const [genres, setGenres] = useState([]);
   const [error, setError] = useState(null);
 
+  const navigate = useNavigate();
+  const { jwtToken } = useOutletContext();
+
   useEffect(() => {
+    if (jwtToken === "") {
+      navigate("/login");
+      return;
+    }
+
     const headers = new Headers();
     headers.append("Content-Type", "application/json");
 
@@ -26,7 +35,7 @@ const Genres = () => {
       .catch((err) => {
         console.log(err);
       });
-  });
+  }, [jwtToken, navigate]); 
 
   if (error !== null) {
     return <div>Error: {error.message}</div>;

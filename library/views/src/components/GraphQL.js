@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Input from './form/Input';
+import { useNavigate, useOutletContext } from "react-router-dom";
 
 const GraphQL = () => {
     // set up stateful variables
     const [books, setBooks] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [fullList, setFullList] = useState([]);
+
+    const navigate = useNavigate();
+    const { jwtToken } = useOutletContext();
 
     // perform a search
     const performSearch = () => {
@@ -55,6 +59,11 @@ const GraphQL = () => {
 
     // useEffect
     useEffect(() => {
+        if (jwtToken === "") {
+            navigate("/login");
+            return;
+          }
+
         const payload = `
         {
             list {
@@ -84,7 +93,7 @@ const GraphQL = () => {
                 setFullList(theList);
             })
             .catch(err => {console.log(err)})
-    }, [])
+    }, [jwtToken, navigate])
 
     return(
         <div>

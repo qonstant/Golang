@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import Alert from "./components/Alert";
+import jwt_decode from 'jwt-decode';
+import Home from "./components/Home";
 
 function App() {
   const [jwtToken, setJwtToken] = useState("");
+  const [userID, setUserID] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
   const [alertClassName, setAlertClassName] = useState("d-none");
 
@@ -23,10 +26,12 @@ function App() {
     })
     .finally(() => {
       setJwtToken("");
+      setUserID("");
+      <Home jwtToken={jwtToken} />
       toggleRefresh(false);
     })
-
     navigate("/login");
+    localStorage.setItem("email", "");
   }
 
   const toggleRefresh = useCallback((status) => {
@@ -46,6 +51,9 @@ function App() {
         .then((data) => {
           if (data.access_token) {
             setJwtToken(data.access_token);
+            var decoded = jwt_decode(data.access_token);
+            setUserID(decoded.sub);
+            <Home jwtToken={jwtToken} />
           }
         })
         .catch(error => {
@@ -58,9 +66,9 @@ function App() {
       console.log("turning off ticking");
       console.log("turning off tickInterval", tickInterval);
       setTickInterval(null);
-      clearInterval(tickInterval);
+      clearInterval(tickInterval); 
     }
-  }, [tickInterval])
+  }, [jwtToken, tickInterval])
 
   useEffect(() => {
     if (jwtToken === "") {
@@ -68,26 +76,32 @@ function App() {
         method: "GET",
         credentials: "include",
       }
-
+  
       fetch(`/refresh`, requestOptions)
         .then((response) => response.json())
         .then((data) => {
           if (data.access_token) {
             setJwtToken(data.access_token);
+            <Home jwtToken={jwtToken} />
+            var decoded = jwt_decode(data.access_token);
+            setUserID(decoded.sub);
             toggleRefresh(true);
           }
         })
         .catch(error => {
           console.log("user is not logged in", error);
         })
+    } else {
+      var decoded = jwt_decode(jwtToken);
+      setUserID(decoded.sub);
     }
   }, [jwtToken, toggleRefresh])
-
+  
   return (
     <div className="container">
       <div className="row">
         <div className="col">
-          <h1 className="mt-3">BookStore -_-</h1>
+          <h1 className="mt-3">BookStore</h1>
         </div>
         <div className="col text-end">
           {jwtToken === "" ? (
@@ -107,6 +121,8 @@ function App() {
         <div className="col-md-2">
           <nav>
             <div className="list-group">
+              {jwtToken !== "" && (
+              <>
               <Link to="/" className="list-group-item list-group-item-action">
                 Home
               </Link>
@@ -128,7 +144,9 @@ function App() {
                   >
                   GraphQL
               </Link>
-              {jwtToken !== "" && (
+              </>
+              )}
+              {jwtToken !== "" && userID === "1" && (
                 <>
                   <Link
                     to="/admin/book/0"
@@ -153,11 +171,15 @@ function App() {
             context={{
               jwtToken,
               setJwtToken,
+              setUserID,
               setAlertClassName,
               setAlertMessage,
               toggleRefresh,
             }}
-          />
+          >
+            {/* <Home jwtToken={jwtToken} /> */}
+          </Outlet>
+
         </div>
       </div>
     </div>

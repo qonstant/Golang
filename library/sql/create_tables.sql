@@ -70,6 +70,40 @@ CREATE TABLE public.books_genres (
 );
 
 
+CREATE TABLE public.comments (
+    id integer NOT NULL,
+    book_id integer,
+    user_id integer,
+    comment text,
+    created_at timestamp without time zone
+);
+
+ALTER TABLE public.comments ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.comments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+CREATE TABLE public.purchase (
+    id integer NOT NULL,
+    user_id integer,
+    book_id integer,
+    address text,
+    created_at timestamp without time zone
+);
+
+ALTER TABLE public.purchase ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.purchase_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
 --
 -- Name: books_genres_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -159,6 +193,16 @@ COPY public.books (id, title, release_date, pages, rating, price, description, i
 3	All Quiet on the Western Front	1928-11-10	304	9	30.5	Set during World War I, it follows the life of an idealistic young German soldier named Paul Bäumer. After enlisting in the German Army with his friends, Bäumer finds himself exposed to the realities of war, shattering his early hopes of becoming a hero as he does his best to survive.	/2IRjbi9cADuDMKmHdLK7LaqQDKA.jpg
 \.
 
+COPY public.comments (id, book_id, user_id, comment, created_at) FROM stdin;
+1	1	1	This is amazing Manga!	2022-04-15 09:30:00
+2	2	2	I didnt even expect that kind of ending	2022-04-16 14:45:00
+\.
+
+COPY public.purchase (id, book_id, user_id, address, created_at) FROM stdin;
+1	2	3	KBTU Abylay hana 444	2023-04-15 09:30:00
+2	3	2	Aktau 17 mkr	2023-04-15 19:30:00
+\.
+
 -- SET client_encoding TO 'SJIS'
 -- \copy public.books from '/Users/rakymzhan/Documents/projects/src/library/sql/books.csv' delimiter ',' csv header
 -- SET client_encoding TO 'UTF8';
@@ -187,14 +231,20 @@ COPY public.books_genres (id, book_id, genre_id) FROM stdin;
 --
 
 COPY public.users (id, first_name, last_name, email, password, created_at, updated_at) FROM stdin;
-1	Admin	User	rakorako2204@gmail.com	$2a$14$wVsaPvJnJJsomWArouWCtusem6S/.Gauq/GjOIEHpyh2DAMmso1wy	2023-03-30 00:00:00	2023-03-30 00:00:00
+1	Admin	User	admin@gmail.com	$2a$14$wVsaPvJnJJsomWArouWCtusem6S/.Gauq/GjOIEHpyh2DAMmso1wy	2023-03-30 00:00:00	2023-03-30 00:00:00
+2	Consumer	User	consumer@gmail.com	$2a$14$wVsaPvJnJJsomWArouWCtusem6S/.Gauq/GjOIEHpyh2DAMmso1wy	2023-03-30 00:00:00	2023-03-30 00:00:00
+3	Consumer2	User	consumer2@gmail.com	$2a$14$wVsaPvJnJJsomWArouWCtusem6S/.Gauq/GjOIEHpyh2DAMmso1wy	2023-03-30 00:00:00	2023-03-30 00:00:00
 \.
 
+
+SELECT pg_catalog.setval('public.comments_id_seq', 2, true);
+
+
+SELECT pg_catalog.setval('public.purchase_id_seq', 2, true);
 
 --
 -- Name: genres_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
-
 SELECT pg_catalog.setval('public.genres_id_seq', 14, true);
 
 
@@ -216,7 +266,7 @@ SELECT pg_catalog.setval('public.books_id_seq', 3, true);
 -- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.users_id_seq', 1, true);
+SELECT pg_catalog.setval('public.users_id_seq', 3, true);
 
 
 --
@@ -225,6 +275,14 @@ SELECT pg_catalog.setval('public.users_id_seq', 1, true);
 
 ALTER TABLE ONLY public.genres
     ADD CONSTRAINT genres_pkey PRIMARY KEY (id);
+
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT comments_pkey PRIMARY KEY (id);
+
+
+ALTER TABLE ONLY public.purchase
+    ADD CONSTRAINT purchase_pkey PRIMARY KEY (id);
 
 
 --
@@ -257,6 +315,16 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.books_genres
     ADD CONSTRAINT books_genres_genre_id_fkey FOREIGN KEY (genre_id) REFERENCES public.genres(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT comments_book_id_fkey FOREIGN KEY (book_id) REFERENCES public.books(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    ADD CONSTRAINT comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY public.purchase
+    ADD CONSTRAINT purchase_book_id_fkey FOREIGN KEY (book_id) REFERENCES public.books(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    ADD CONSTRAINT purchase_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --

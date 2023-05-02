@@ -6,6 +6,10 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+// 	"github.com/golang-jwt/jwt/v5"
+// 	"errors"
+// 	"strings"
+// 	"net/http"
 )
 
 // PostgresDBRepo is the struct used to wrap our database connection pool, so that we
@@ -22,6 +26,30 @@ const dbTimeout = time.Second * 3
 func (b *PostgresDBRepo) Connection() *sql.DB {
 	return b.DB
 }
+
+// Registration
+func (b *PostgresDBRepo) InsertUser(user models.User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+  
+	stmt := `INSERT INTO users (first_name, last_name, email, password, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)`
+  
+	_, err := b.DB.ExecContext(ctx, stmt,
+	  user.FirstName,
+	  user.LastName,
+	  user.Email,
+	  user.Password,
+	  user.CreatedAt,
+	  user.UpdatedAt,
+	)
+  
+	if err != nil {
+	  return err
+	}
+  
+	return nil
+  }
 
 // AllBooks returns a slice of books, sorted by name. If the optional parameter genre
 // is supplied, then only all books for a particular genre is returned.
@@ -72,6 +100,51 @@ func (b *PostgresDBRepo) AllBooks(genre ...int) ([]*models.Book, error) {
 	}
 
 	return books, nil
+}
+
+// Getting comments from DB
+func (b *PostgresDBRepo) GetComments(bookID int) ([]*models.Comment, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	// where = fmt.Sprintf("where id in (select book_id from books_genres where genre_id = %d)", genre[0])
+	where := fmt.Sprintf("where book_id = %d", bookID)
+
+	query := fmt.Sprintf(`
+		select
+			id, book_id, user_id, comment, created_at
+		from
+			comments %s
+		order by
+			created_at
+		`, where)
+
+
+	rows, err := b.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []*models.Comment
+
+	for rows.Next() {
+		var comment models.Comment
+		err := rows.Scan(
+			&comment.ID,
+			&comment.BookID,
+			&comment.UserID,
+			&comment.Comment,
+			&comment.Date,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		comments = append(comments, &comment)
+	}
+
+	return comments, nil
 }
 
 // OneBook returns a single book and associated genres, if any.
@@ -332,6 +405,49 @@ func (b *PostgresDBRepo) InsertBook(book models.Book) (int, error) {
 	}
 
 	return newID, nil
+}
+
+// InsertComment into the database
+func (b *PostgresDBRepo) InsertComment(comment models.Comment) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	stmt := `INSERT INTO comments (book_id, user_id, comment, created_at)
+			VALUES ($1, $2, $3, $4)`
+
+	_, err := b.DB.ExecContext(ctx, stmt,
+		comment.BookID,
+		comment.UserID,
+		comment.Comment,
+		time.Now(),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *PostgresDBRepo) InstantBuy(purchase models.Purchase) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	stmt := `INSERT INTO purchase (user_id, book_id, address, created_at)
+			VALUES ($1, $2, $3, $4)`
+
+	_, err := b.DB.ExecContext(ctx, stmt,
+		purchase.UserID,
+		purchase.BookID,
+		purchase.Address,
+		time.Now(),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // UpdateBook updates one book in the database.

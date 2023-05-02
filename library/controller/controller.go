@@ -20,13 +20,15 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	
+
 	"database/sql"
 	"sort"
-	
-	"library/internal/repository"
+
 	"library/internal/graph"
 	"library/internal/models"
+	"library/internal/repository"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Application struct {
@@ -127,12 +129,18 @@ func (app *Application) Routes() http.Handler {
 	mux.Get("/", app.Home)
 
 	mux.Post("/authenticate", app.authenticate)
+	mux.Post("/register", app.register)
 	mux.Get("/refresh", app.refreshToken)
 	mux.Get("/logout", app.logout)
+	mux.Get("/home/{id}", app.GetUserInfo)
 
 	mux.Get("/books", app.AllBooks)
-	mux.Get("/books_ordered/{order}", app.BookCatalogByPrice)
+	mux.Get("/books/ordered/price/{order}", app.BookCatalogByPrice)
+	mux.Get("/books/ordered/rating/{order}", app.BookCatalogByRating)
 	mux.Get("/books/{id}", app.GetBook)
+	mux.Put("/books/{id}/commenting", app.InsertComment)
+	mux.Get("/books/{id}/comments", app.GetComments)
+	mux.Put("/books/{id}/purchase", app.InstantBuy)
 
 	mux.Get("/genres", app.AllGenres)
 	mux.Get("/books/genres/{id}", app.AllBooksByGenre)
@@ -159,7 +167,7 @@ func (app *Application) Routes() http.Handler {
 // import "net/http"
 func (app *Application) enableCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "https://learn-code.ca")
+		w.Header().Set("Access-Control-Allow-Origin", "https://example.com")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == "OPTIONS" {
@@ -212,6 +220,7 @@ type jwtUser struct {
 	ID        int    `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	// Role      int    `json:"role"`
 }
 
 type TokenPairs struct {
@@ -347,6 +356,50 @@ func (j *Auth) GetTokenFromHeaderAndVerify(w http.ResponseWriter, r *http.Reques
 	return token, claims, nil
 }
 
+func (app *Application) register(w http.ResponseWriter, r *http.Request) {
+	// read json payload
+	var user models.User
+  
+	err := app.readJSON(w, r, &user)
+	if err != nil {
+	  app.errorJSON(w, err, http.StatusBadRequest)
+	  return
+	}
+  
+	_, err = app.DB.GetUserByEmail(user.Email)
+	if err == nil {
+	  resp := JSONResponse{
+		Error:   true,
+		Message: "this email is already existed",
+	  }
+	  app.writeJSON(w, http.StatusBadRequest, resp)
+	  return
+	}
+  
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = time.Now()
+  
+	password, err := bcrypt.GenerateFromPassword([]byte(user.Password), len(user.Password))
+	if err != nil {
+	  fmt.Println(err)
+	  return
+	}
+	user.Password = string(password)
+  
+	err = app.DB.InsertUser(user)
+	if err != nil {
+	  app.errorJSON(w, err)
+	  return
+	}
+  
+	resp := JSONResponse{
+	  Error:   false,
+	  Message: "user added",
+	}
+	app.writeJSON(w, http.StatusAccepted, resp)
+  
+  }
+
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // HANDLERS-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -392,6 +445,48 @@ func (app *Application) AllBooks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = app.writeJSON(w, http.StatusOK, books)
+}
+
+func (app *Application) GetComments(w http.ResponseWriter, r *http.Request) {
+	bookId, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	comments, err := app.DB.GetComments(bookId)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, comments)
+}
+
+// // get user information
+func (app *Application) GetUserInfo(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	user, err := app.DB.GetUserByID(id)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	var payload = struct {
+		ID        int    `json:"id"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+	}{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+	}
+
+	_ = app.writeJSON(w, http.StatusOK, payload)
 }
 
 // authenticate authenticates a user, and returns a JWT.
@@ -508,6 +603,7 @@ func (app *Application) BookCatalog(w http.ResponseWriter, r *http.Request) {
 	_ = app.writeJSON(w, http.StatusOK, books)
 }
 
+
 func (app *Application) BookCatalogByPrice(w http.ResponseWriter, r *http.Request) {
 	order := chi.URLParam(r, "order")
 	books, err := app.DB.AllBooks()
@@ -516,19 +612,44 @@ func (app *Application) BookCatalogByPrice(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	switch order {
-		case "asc":
-			sort.Slice(books, func(i, j int) bool{
-				return books[i].Price < books[j].Price
-			})
-		case "desc":
-			sort.Slice(books, func(i, j int) bool{
-				return books[i].Price > books[j].Price
-			})
-		default:
+	case "asc":
+		sort.Slice(books, func(i, j int) bool {
+			return books[i].Price < books[j].Price
+		})
+	case "desc":
+		sort.Slice(books, func(i, j int) bool {
+			return books[i].Price > books[j].Price
+		})
+	default:
+	
 
 	}
 	_ = app.writeJSON(w, http.StatusOK, books)
 }
+
+
+func (app *Application) BookCatalogByRating(w http.ResponseWriter, r *http.Request) {
+	order := chi.URLParam(r, "order")
+	books, err := app.DB.AllBooks()
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	switch order {
+	case "asc":
+		sort.Slice(books, func(i, j int) bool {
+			return books[i].Rating < books[j].Rating
+		})
+	case "desc":
+		sort.Slice(books, func(i, j int) bool {
+			return books[i].Rating > books[j].Rating
+		})
+	default:
+
+	}
+	_ = app.writeJSON(w, http.StatusOK, books)
+}
+
 
 // GetBook returns one book, as JSON.
 func (app *Application) GetBook(w http.ResponseWriter, r *http.Request) {
@@ -564,7 +685,7 @@ func (app *Application) BookForEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var payload = struct {
-		Book  *models.Book   `json:"book"`
+		Book   *models.Book    `json:"book"`
 		Genres []*models.Genre `json:"genres"`
 	}{
 		book,
@@ -619,6 +740,170 @@ func (app *Application) InsertBook(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusAccepted, resp)
 }
 
+// func getUserFromToken(authHeader string) (*models.User, error) {
+// 	// Split the auth header into its parts
+// 	parts := strings.Split(authHeader, " ")
+// 	if len(parts) != 2 {
+// 		return nil, errors.New("Invalid auth header format")
+// 	}
+
+// 	// Extract the token from the "Bearer" prefix
+// 	token := parts[1]
+
+// 	// Parse the token and extract the claims
+// 	tokenClaims := jwt.MapClaims{}
+// 	_, err := jwt.ParseWithClaims(token, tokenClaims, func(token *jwt.Token) (interface{}, error) {
+// 		// Use the secret key to validate the token signature
+// 		return []byte("your-secret-key"), nil
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// Extract the user information from the claims
+// 	user := &models.User{}
+// 	user.ID = tokenClaims["sub"].(string)
+// 	user.Name = tokenClaims["name"].(string)
+// 	user.Email = tokenClaims["email"].(string)
+
+// 	return user, nil
+// }
+
+func (app *Application) InstantBuy(w http.ResponseWriter, r *http.Request) {
+	var purchase models.Purchase
+	bookID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	
+	err = app.readJSON(w, r, &purchase)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	// get Auth header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		app.errorJSON(w, errors.New("no Auth header"))
+		return
+	}
+
+	// split the header on spaces
+	headerParts := strings.Split(authHeader, " ")
+	if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+		app.errorJSON(w, errors.New("invalid Auth header"))
+		return
+	}
+
+	// parse the token and extract the user ID
+	token := headerParts[1]
+	claims := &Claims{}
+	_, err = jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(app.JWTSecret), nil
+	})
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "token is expired by") {
+			app.errorJSON(w, errors.New("expired token"))
+			return
+		}
+		app.errorJSON(w, err)
+		return
+	}
+
+	purchase.UserID, err = strconv.Atoi(claims.Subject)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	purchase.BookID = bookID
+
+	err = app.DB.InstantBuy(purchase)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	resp := JSONResponse{
+		Error:   false,
+		Message: "comment added",
+	}
+	app.writeJSON(w, http.StatusAccepted, resp)
+}
+
+
+// Inserting new comment
+func (app *Application) InsertComment(w http.ResponseWriter, r *http.Request) {
+	var comment models.Comment
+	bookID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	
+	err = app.readJSON(w, r, &comment)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	// get Auth header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		app.errorJSON(w, errors.New("no Auth header"))
+		return
+	}
+
+	// split the header on spaces
+	headerParts := strings.Split(authHeader, " ")
+	if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+		app.errorJSON(w, errors.New("invalid Auth header"))
+		return
+	}
+
+	// parse the token and extract the user ID
+	token := headerParts[1]
+	claims := &Claims{}
+	_, err = jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(app.JWTSecret), nil
+	})
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "token is expired by") {
+			app.errorJSON(w, errors.New("expired token"))
+			return
+		}
+		app.errorJSON(w, err)
+		return
+	}
+
+	comment.UserID, err = strconv.Atoi(claims.Subject)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	comment.BookID = bookID
+
+	err = app.DB.InsertComment(comment)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	resp := JSONResponse{
+		Error:   false,
+		Message: "comment added",
+	}
+	app.writeJSON(w, http.StatusAccepted, resp)
+}
+
+
 // getPoster tries to get a poster image from thebookdb.org.
 func (app *Application) getPoster(book models.Book) models.Book {
 	type TheBookDB struct {
@@ -630,7 +915,7 @@ func (app *Application) getPoster(book models.Book) models.Book {
 	}
 
 	client := &http.Client{}
-	theUrl := fmt.Sprintf("https://api.the(movie)db.org/3/search/movie?api_key=%s", app.APIKey)
+	theUrl := fmt.Sprintf("https://api.themoviedb.org/3/search/movie?api_key=%s", app.APIKey)
 
 	// https://api.themoviedb.org/3/search/movie?api_key=a696843dcb19cba1ddf454df0c93192c&query=Demon+Slayer
 

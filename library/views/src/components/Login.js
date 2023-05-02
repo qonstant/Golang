@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import Input from "./form/Input";
 
 const Login = () => {
@@ -15,21 +15,20 @@ const Login = () => {
 
     const handleSubmit = (event) => {
         event.preventDefault();
-        
         // build the request payload
         let payload = {
             email: email,
             password: password,
-        }
+        };
 
         const requestOptions = {
             method: "POST",
             headers: {
-                'Content-Type': 'application/json'
+                "Content-Type": "application/json",
             },
-            credentials: 'include',
+            credentials: "include",
             body: JSON.stringify(payload),
-        }
+        };
 
         fetch(`/authenticate`, requestOptions)
             .then((response) => response.json())
@@ -43,19 +42,19 @@ const Login = () => {
                     setAlertMessage("");
                     toggleRefresh(true);
                     navigate("/");
+                    localStorage.setItem("email", email);
                 }
             })
-            .catch(error => {
+            .catch((error) => {
                 setAlertClassName("alert-danger");
                 setAlertMessage(error);
-            })
-    }
+            });
+    };
 
-    return(
+    return (
         <div className="col-md-6 offset-md-3">
             <h2>Login</h2>
             <hr />
-
             <form onSubmit={handleSubmit}>
                 <Input
                     title="Email Address"
@@ -77,16 +76,14 @@ const Login = () => {
 
                 <hr />
 
-                <input 
-                    type="submit"
-                    className="btn btn-primary"
-                    value="Login"
-                />
+                <input type="submit" className="btn btn-primary" value="Login" />
 
-
+                <button className="btn btn-link ml-2">
+                    <Link to="/register">Sign Up</Link>
+                </button>
             </form>
         </div>
-    )
-}
+    );
+};
 
 export default Login;

@@ -8,11 +8,13 @@ import Genres from './components/Genres';
 import GraphQL from './components/GraphQL';
 import Home from './components/Home';
 import Login from './components/Login';
+import Register from './components/Register';
 import ManageCatalogue from './components/ManageCatalogue';
 import Books from './components/Books';
 import Book from './components/Book';
 import OneGenre from './components/OneGenre';
-import OrderedBooks from './components/OrderedBooks';
+import OrderedByPriceBooks from './components/OrderedByPriceBooks';
+import OrderedByRatingBooks from './components/OrderedByRatingBooks';
 
 const router = createBrowserRouter([
   {
@@ -58,8 +60,16 @@ const router = createBrowserRouter([
         element: <Login />,
       },
       {
-        path: "/books_ordered/:order",
-        element: <OrderedBooks />,
+        path: "/register",
+        element: <Register />,
+      },
+      {
+        path: "/books/ordered/price/:order",
+        element: <OrderedByPriceBooks />,
+      },
+      {
+        path: "/books/ordered/rating/:order",
+        element: <OrderedByRatingBooks />,
       },
     ]
   }
